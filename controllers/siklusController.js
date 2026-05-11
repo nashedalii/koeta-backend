@@ -124,7 +124,9 @@ export const deleteSiklus = async (req, res) => {
     const siklus = siklusResult.rows[0]
 
     // Hanya bisa hapus jika belum mulai
-    const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toLocaleDateString('en-CA', {
+    timeZone: 'Asia/Jakarta'
+})
     if (siklus.tanggal_mulai <= today) {
       return res.status(400).json({ message: 'Siklus yang sudah berjalan atau selesai tidak dapat dihapus' })
     }
@@ -153,7 +155,7 @@ export const createSiklus = async (req, res) => {
     return res.status(400).json({ message: 'nama_siklus, tanggal_mulai, dan tanggal_selesai wajib diisi' })
   }
 
-  if (new Date(tanggal_selesai) <= new Date(tanggal_mulai)) {
+  if (tanggal_selesai <= tanggal_mulai) {
     return res.status(400).json({ message: 'tanggal_selesai harus setelah tanggal_mulai' })
   }
 
