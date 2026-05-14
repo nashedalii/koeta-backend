@@ -71,6 +71,7 @@ export const getAllPeriode = async (req, res) => {
       FROM periode p
       JOIN siklus_penilaian s ON p.siklus_id = s.siklus_id
       WHERE s.status_siklus = 'aktif'
+        AND s.is_activated = true
         AND p.tanggal_mulai <= CURRENT_DATE
       ORDER BY p.tanggal_mulai DESC
     `)
@@ -94,7 +95,9 @@ export const getPeriodeAktif = async (req, res) => {
       result = await pool.query(`
         SELECT p.*
         FROM periode p
+        JOIN siklus_penilaian s ON p.siklus_id = s.siklus_id
         WHERE p.siklus_id = $1
+          AND s.is_activated = true
           AND (
             p.is_override = true
             OR (
@@ -108,12 +111,13 @@ export const getPeriodeAktif = async (req, res) => {
         LIMIT 1
       `, [siklus_id])
     } else {
-      // Tanpa siklus_id: cari di semua siklus yang status_siklus = 'aktif'
+      // Tanpa siklus_id: cari di semua siklus yang status_siklus = 'aktif' dan is_activated = true
       result = await pool.query(`
         SELECT p.*
         FROM periode p
         JOIN siklus_penilaian s ON p.siklus_id = s.siklus_id
         WHERE s.status_siklus = 'aktif'
+          AND s.is_activated = true
           AND (
             p.is_override = true
             OR (

@@ -134,12 +134,35 @@ export const bulkUpdateBobot = async (req, res) => {
       )
     }
 
+    // Auto-activate siklus jika tanggal_mulai belum lewat
+    const siklusResult = await client.query(
+      'SELECT tanggal_mulai, is_activated FROM siklus_penilaian WHERE siklus_id = $1',
+      [siklus_id]
+    )
+    const siklus = siklusResult.rows[0]
+    let activated = false
+
+    if (siklus && !siklus.is_activated) {
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
+      if (siklus.tanggal_mulai > today) {
+        // Tanggal mulai belum lewat → otomatis aktifkan
+        await client.query(
+          'UPDATE siklus_penilaian SET is_activated = true WHERE siklus_id = $1',
+          [siklus_id]
+        )
+        activated = true
+      }
+    }
+
     await client.query('COMMIT')
 
     res.json({
-      message: `${data.length} bobot berhasil disimpan`,
+      message: activated
+        ? `${data.length} bobot berhasil disimpan. Siklus otomatis diaktifkan.`
+        : `${data.length} bobot berhasil disimpan`,
       jumlah_bobot: data.length,
-      total_persentase: 100
+      total_persentase: 100,
+      siklus_activated: activated
     })
   } catch (err) {
     await client.query('ROLLBACK')

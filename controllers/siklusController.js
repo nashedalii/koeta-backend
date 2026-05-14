@@ -57,8 +57,9 @@ export const getAllSiklus = async (req, res) => {
       SELECT s.*,
         CASE
           WHEN s.status_siklus = 'nonaktif'        THEN 'nonaktif'
-          WHEN s.tanggal_mulai > CURRENT_DATE       THEN 'belum_dimulai'
-          WHEN s.tanggal_selesai < CURRENT_DATE     THEN 'selesai'
+          WHEN s.tanggal_selesai < CURRENT_DATE    THEN 'selesai'
+          WHEN s.tanggal_mulai > CURRENT_DATE      THEN 'belum_dimulai'
+          WHEN s.is_activated = false              THEN 'tertunda'
           ELSE 'berjalan'
         END AS status_display,
         COUNT(p.periode_id)::int AS jumlah_periode
@@ -123,12 +124,9 @@ export const deleteSiklus = async (req, res) => {
     }
     const siklus = siklusResult.rows[0]
 
-    // Hanya bisa hapus jika belum mulai
-    const today = new Date().toLocaleDateString('en-CA', {
-    timeZone: 'Asia/Jakarta'
-})
-    if (siklus.tanggal_mulai <= today) {
-      return res.status(400).json({ message: 'Siklus yang sudah berjalan atau selesai tidak dapat dihapus' })
+    // Hanya bisa hapus jika belum diaktifkan (belum_dimulai atau tertunda)
+    if (siklus.is_activated === true) {
+      return res.status(400).json({ message: 'Siklus yang sudah aktif tidak dapat dihapus' })
     }
 
     await client.query('BEGIN')
@@ -144,6 +142,55 @@ export const deleteSiklus = async (req, res) => {
     res.status(500).json({ message: 'Terjadi kesalahan server' })
   } finally {
     client.release()
+  }
+}
+
+// ── PUT /api/siklus/:id/activate ─────────────────────────────────────────
+// Aktivasi manual siklus yang tertunda (tanggal sudah lewat, bobot sudah diisi)
+export const activateSiklus = async (req, res) => {
+  const { id } = req.params
+
+  try {
+    const siklusResult = await pool.query(
+      'SELECT * FROM siklus_penilaian WHERE siklus_id = $1', [id]
+    )
+    if (siklusResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Siklus tidak ditemukan' })
+    }
+
+    const siklus = siklusResult.rows[0]
+
+    if (siklus.is_activated) {
+      return res.status(400).json({ message: 'Siklus sudah aktif' })
+    }
+
+    // Cek bobot sudah ada dan total = 100%
+    const bobotResult = await pool.query(
+      'SELECT persentase_bobot FROM bobot WHERE siklus_id = $1', [id]
+    )
+    if (bobotResult.rows.length === 0) {
+      return res.status(400).json({
+        message: 'Tidak dapat mengaktifkan siklus: bobot penilaian belum dikonfigurasi'
+      })
+    }
+    const totalBobot = bobotResult.rows.reduce(
+      (sum, b) => sum + parseFloat(b.persentase_bobot), 0
+    )
+    if (Math.abs(totalBobot - 100) > 0.01) {
+      return res.status(400).json({
+        message: `Tidak dapat mengaktifkan siklus: total bobot ${totalBobot.toFixed(1)}% (harus 100%)`
+      })
+    }
+
+    // Aktifkan siklus
+    await pool.query(
+      'UPDATE siklus_penilaian SET is_activated = true WHERE siklus_id = $1', [id]
+    )
+
+    res.json({ message: `Siklus "${siklus.nama_siklus}" berhasil diaktifkan` })
+  } catch (err) {
+    console.error('Activate siklus error:', err)
+    res.status(500).json({ message: 'Terjadi kesalahan server' })
   }
 }
 

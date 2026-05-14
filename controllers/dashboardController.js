@@ -5,6 +5,7 @@ const QUERY_PERIODE_AKTIF = `
   FROM periode p
   JOIN siklus_penilaian s ON p.siklus_id = s.siklus_id
   WHERE s.status_siklus = 'aktif'
+    AND s.is_activated = true
     AND (
       p.is_override = true
       OR (
@@ -201,6 +202,20 @@ export const getAdminDashboard = async (req, res) => {
     `)
     const warningBobot = sikusTanpaBobotResult.rows[0] || null
 
+    // Cek siklus tertunda: tanggal sudah lewat tapi belum diaktifkan
+    const siklusTertundaResult = await pool.query(`
+      SELECT s.siklus_id, s.nama_siklus, s.tanggal_mulai,
+        EXISTS (SELECT 1 FROM bobot b WHERE b.siklus_id = s.siklus_id) AS has_bobot
+      FROM siklus_penilaian s
+      WHERE s.status_siklus = 'aktif'
+        AND s.is_activated = false
+        AND s.tanggal_mulai <= CURRENT_DATE
+        AND s.tanggal_selesai >= CURRENT_DATE
+      ORDER BY s.tanggal_mulai ASC
+      LIMIT 1
+    `)
+    const siklusTertunda = siklusTertundaResult.rows[0] || null
+
     res.json({
       total_driver_aktif:       parseInt(driverResult.rows[0].total),
       total_armada:             totalArmada,
@@ -215,6 +230,9 @@ export const getAdminDashboard = async (req, res) => {
         : null,
       warning_bobot:            warningBobot
         ? { siklus_id: warningBobot.siklus_id, nama_siklus: warningBobot.nama_siklus, is_future: warningBobot.is_future }
+        : null,
+      siklus_tertunda:          siklusTertunda
+        ? { siklus_id: siklusTertunda.siklus_id, nama_siklus: siklusTertunda.nama_siklus, has_bobot: siklusTertunda.has_bobot }
         : null,
     })
   } catch (err) {
