@@ -383,6 +383,19 @@ export const getPetugasDashboard = async (req, res) => {
 
     const statusPenilaian = statusPenilaianResult.rows[0]
 
+    // Cek siklus mendatang (untuk timer di frontend)
+    // Prioritas: siklus tertunda (tanggal lewat, belum aktif) > siklus belum dimulai
+    const siklusMendatangResult = await pool.query(`
+      SELECT s.siklus_id, s.nama_siklus, s.tanggal_mulai, s.is_activated
+      FROM siklus_penilaian s
+      WHERE s.status_siklus = 'aktif'
+        AND s.is_activated = false
+        AND s.tanggal_selesai >= CURRENT_DATE
+      ORDER BY s.tanggal_mulai ASC
+      LIMIT 1
+    `)
+    const siklusMendatang = siklusMendatangResult.rows[0] || null
+
     res.json({
       nama_petugas:        petugas.nama_petugas,
       nama_armada:         petugas.nama_armada,
@@ -396,6 +409,9 @@ export const getPetugasDashboard = async (req, res) => {
       },
       rata_skor_armada:      rataSkorArmada ? parseFloat(rataSkorArmada) : null,
       driver_belum_dinilai:  belumDinilaiResult.rows,
+      siklus_mendatang:      siklusMendatang
+        ? { siklus_id: siklusMendatang.siklus_id, nama_siklus: siklusMendatang.nama_siklus, tanggal_mulai: siklusMendatang.tanggal_mulai, is_activated: siklusMendatang.is_activated }
+        : null,
     })
   } catch (err) {
     console.error('Petugas dashboard error:', err)

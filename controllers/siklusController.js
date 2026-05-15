@@ -50,6 +50,39 @@ function generatePeriodes(siklusId, tanggalMulai, tanggalSelesai) {
   return periodes
 }
 
+// ── GET /api/siklus/mendatang ─────────────────────────────────────────────
+// Siklus berikutnya yang belum aktif (untuk timer di dashboard petugas/driver)
+export const getSiklusMendatang = async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT s.siklus_id, s.nama_siklus, s.tanggal_mulai, s.is_activated
+      FROM siklus_penilaian s
+      WHERE s.status_siklus = 'aktif'
+        AND s.is_activated = false
+        AND s.tanggal_selesai >= CURRENT_DATE
+      ORDER BY s.tanggal_mulai ASC
+      LIMIT 1
+    `)
+
+    if (result.rows.length === 0) {
+      return res.json({ siklus: null })
+    }
+
+    const s = result.rows[0]
+    res.json({
+      siklus: {
+        siklus_id: s.siklus_id,
+        nama_siklus: s.nama_siklus,
+        tanggal_mulai: s.tanggal_mulai,
+        is_activated: s.is_activated,
+      }
+    })
+  } catch (err) {
+    console.error('Get siklus mendatang error:', err)
+    res.status(500).json({ message: 'Terjadi kesalahan server' })
+  }
+}
+
 // ── GET /api/siklus ──────────────────────────────────────────────────────
 export const getAllSiklus = async (req, res) => {
   try {
