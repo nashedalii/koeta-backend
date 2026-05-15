@@ -231,7 +231,17 @@ export const getAllUsers = async (req, res) => {
          LEFT JOIN koridor k ON d.koridor_id = k.koridor_id`
       )
     } else {
-      // Admin vendor hanya melihat petugas & driver di armadanya
+      // Admin vendor: lihat admin lain di armada yang sama (read-only) + petugas & driver
+      adminResult = await pool.query(
+        `SELECT admin_id AS id, nama_admin AS nama, nomor_pegawai AS identifier,
+                no_hp, status_aktif, role,
+                a.kode_armada, a.nama_armada
+         FROM admin
+         LEFT JOIN armada a ON admin.armada_id = a.armada_id
+         WHERE admin.armada_id = $1`,
+        [callerArmadaId]
+      )
+
       petugasResult = await pool.query(
         `SELECT p.petugas_id AS id, p.nama_petugas AS nama, p.nomor_pegawai AS identifier,
                 p.no_hp, p.status_aktif, 'petugas' AS role,
