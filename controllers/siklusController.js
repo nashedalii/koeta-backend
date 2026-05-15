@@ -239,6 +239,12 @@ export const createSiklus = async (req, res) => {
     return res.status(400).json({ message: 'tanggal_selesai harus setelah tanggal_mulai' })
   }
 
+  // Tanggal mulai tidak boleh di masa lalu
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
+  if (tanggal_mulai < today) {
+    return res.status(400).json({ message: 'tanggal_mulai tidak boleh sebelum hari ini' })
+  }
+
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
