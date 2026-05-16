@@ -390,7 +390,9 @@ export const deletePenilaian = async (req, res) => {
       }
     }
 
-    // CASCADE hapus penilaian_detail dan bukti_foto dari DB
+    // Hapus penilaian_detail dan bukti_foto terlebih dahulu (FK constraint)
+    await pool.query('DELETE FROM bukti_foto WHERE penilaian_id = $1', [id])
+    await pool.query('DELETE FROM penilaian_detail WHERE penilaian_id = $1', [id])
     await pool.query('DELETE FROM penilaian WHERE penilaian_id = $1', [id])
 
     res.json({ message: 'Penilaian berhasil dihapus' })
