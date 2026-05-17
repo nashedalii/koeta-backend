@@ -42,7 +42,7 @@ export const login = async (req, res) => {
     // 3. Cek tabel driver (login dengan username)
     if (!user) {
       const driverResult = await pool.query(
-        `SELECT driver_id AS id, nama_driver AS nama, username, status_aktif,
+        `SELECT driver_id AS id, nama_driver AS nama, username, status_aktif, armada_id,
                 (password = crypt($1, password)) AS password_valid
          FROM driver WHERE username = $2`,
         [password, identifier]
