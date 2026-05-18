@@ -15,6 +15,7 @@ import driverRoutes from './routes/driver.js'
 import dashboardRoutes from './routes/dashboard.js'
 import profileRoutes from './routes/profile.js'
 import resetRequestRoutes from './routes/resetRequest.js'
+import koridorRoutes from './routes/koridor.js'
 import { authenticate, authorize } from './middleware/authMiddleware.js'
 
 dotenv.config()
@@ -44,29 +45,12 @@ app.use('/api/driver',    driverRoutes)
 app.use('/api/dashboard', dashboardRoutes)
 app.use('/api/profile',  profileRoutes)
 app.use('/api/reset-request', resetRequestRoutes)
+app.use('/api/koridor', koridorRoutes)
 
 // GET /api/armada — daftar armada untuk filter (super_admin)
 app.get('/api/armada', authenticate, authorize('super_admin', 'admin', 'petugas', 'driver'), async (req, res) => {
   try {
     const result = await pool.query('SELECT armada_id, kode_armada, nama_armada FROM armada ORDER BY kode_armada')
-    res.json(result.rows)
-  } catch (err) {
-    res.status(500).json({ message: 'Terjadi kesalahan server' })
-  }
-})
-
-// GET /api/koridor?armada_id=X — daftar koridor/feeder per armada
-app.get('/api/koridor', authenticate, authorize('super_admin', 'admin', 'petugas', 'driver'), async (req, res) => {
-  try {
-    const { armada_id } = req.query
-    let query = 'SELECT koridor_id, nama_koridor, tipe, armada_id FROM koridor'
-    const params = []
-    if (armada_id) {
-      query += ' WHERE armada_id = $1'
-      params.push(armada_id)
-    }
-    query += ' ORDER BY nama_koridor'
-    const result = await pool.query(query, params)
     res.json(result.rows)
   } catch (err) {
     res.status(500).json({ message: 'Terjadi kesalahan server' })
