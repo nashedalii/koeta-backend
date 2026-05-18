@@ -4,6 +4,8 @@ import supabase from '../config/supabase.js'
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const TABLE_MAP = {
+  super_admin: { table: 'admin', idCol: 'admin_id', namaCol: 'nama_admin' },
+  admin:   { table: 'admin',   idCol: 'admin_id',   namaCol: 'nama_admin'  },
   petugas: { table: 'petugas', idCol: 'petugas_id', namaCol: 'nama_petugas' },
   driver:  { table: 'driver',  idCol: 'driver_id',  namaCol: 'nama_driver'  },
 }
@@ -50,6 +52,23 @@ export const getMyProfile = async (req, res) => {
         LEFT JOIN armada a ON d.armada_id = a.armada_id
         LEFT JOIN bus    b ON b.driver_id = d.driver_id AND b.status_aktif = 'aktif'
         WHERE d.driver_id = $1
+      `, [user_id])
+
+    } else if (role === 'admin' || role === 'super_admin') {
+      result = await pool.query(`
+        SELECT
+          admin.admin_id AS id,
+          admin.nama_admin AS nama,
+          admin.nomor_pegawai,
+          admin.username,
+          admin.no_hp,
+          admin.status_aktif,
+          admin.role,
+          a.nama_armada,
+          a.kode_armada
+        FROM admin
+        LEFT JOIN armada a ON admin.armada_id = a.armada_id
+        WHERE admin.admin_id = $1
       `, [user_id])
 
     } else {

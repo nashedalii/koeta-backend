@@ -5,8 +5,8 @@ import upload from '../middleware/upload.js'
 
 const router = express.Router()
 
-// Semua route hanya untuk petugas & driver
-const allowedRoles = authorize('petugas', 'driver')
+// Semua route untuk semua role yang login
+const allowedRoles = authorize('super_admin', 'admin', 'petugas', 'driver')
 
 router.get('/me',           authenticate, allowedRoles, getMyProfile)
 router.put('/me',           authenticate, allowedRoles, updateMyProfile)
