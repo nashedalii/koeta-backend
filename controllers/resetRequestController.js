@@ -51,12 +51,44 @@ export const submitRequest = async (req, res) => {
 
 // GET /api/reset-request — admin
 export const getRequests = async (req, res) => {
+  const { role, armada_id } = req.user
+  const isSuperAdmin = role === 'super_admin'
+
   try {
-    const result = await pool.query(
-      `SELECT request_id, username, role, nomor_hp, status, created_at, handled_at
-       FROM reset_password_request
-       ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, created_at DESC`
-    )
+    let query
+    let params = []
+
+    if (isSuperAdmin) {
+      // Super admin: lihat semua request
+      query = `
+        SELECT rr.request_id, rr.username, rr.role, rr.nomor_hp, rr.status, rr.created_at, rr.handled_at
+        FROM reset_password_request rr
+        ORDER BY CASE WHEN rr.status = 'pending' THEN 0 ELSE 1 END, rr.created_at DESC
+      `
+    } else {
+      // Admin vendor: hanya request dari petugas/driver di armadanya
+      query = `
+        SELECT rr.request_id, rr.username, rr.role, rr.nomor_hp, rr.status, rr.created_at, rr.handled_at
+        FROM reset_password_request rr
+        WHERE (
+          (rr.role = 'petugas' AND EXISTS (
+            SELECT 1 FROM petugas p
+            WHERE (p.username = rr.username OR p.nomor_pegawai = rr.username)
+              AND p.armada_id = $1
+          ))
+          OR
+          (rr.role = 'driver' AND EXISTS (
+            SELECT 1 FROM driver d
+            WHERE d.username = rr.username
+              AND d.armada_id = $1
+          ))
+        )
+        ORDER BY CASE WHEN rr.status = 'pending' THEN 0 ELSE 1 END, rr.created_at DESC
+      `
+      params = [armada_id]
+    }
+
+    const result = await pool.query(query, params)
     res.json(result.rows)
   } catch (err) {
     console.error('Get reset requests error:', err)
@@ -66,10 +98,34 @@ export const getRequests = async (req, res) => {
 
 // GET /api/reset-request/count — admin, jumlah pending
 export const getPendingCount = async (req, res) => {
+  const { role, armada_id } = req.user
+  const isSuperAdmin = role === 'super_admin'
+
   try {
-    const result = await pool.query(
-      "SELECT COUNT(*) FROM reset_password_request WHERE status = 'pending'"
-    )
+    let result
+    if (isSuperAdmin) {
+      result = await pool.query(
+        "SELECT COUNT(*) FROM reset_password_request WHERE status = 'pending'"
+      )
+    } else {
+      result = await pool.query(
+        `SELECT COUNT(*) FROM reset_password_request rr
+         WHERE rr.status = 'pending'
+           AND (
+             (rr.role = 'petugas' AND EXISTS (
+               SELECT 1 FROM petugas p
+               WHERE (p.username = rr.username OR p.nomor_pegawai = rr.username)
+                 AND p.armada_id = $1
+             ))
+             OR
+             (rr.role = 'driver' AND EXISTS (
+               SELECT 1 FROM driver d
+               WHERE d.username = rr.username AND d.armada_id = $1
+             ))
+           )`,
+        [armada_id]
+      )
+    }
     res.json({ count: parseInt(result.rows[0].count) })
   } catch (err) {
     res.status(500).json({ count: 0 })
@@ -80,6 +136,8 @@ export const getPendingCount = async (req, res) => {
 export const handleReset = async (req, res) => {
   const { id } = req.params
   const admin_id = req.user.user_id
+  const { role, armada_id } = req.user
+  const isSuperAdmin = role === 'super_admin'
 
   try {
     const reqData = await pool.query(
@@ -90,10 +148,29 @@ export const handleReset = async (req, res) => {
       return res.status(404).json({ message: 'Request tidak ditemukan' })
     }
 
-    const { username, role, status, nomor_hp } = reqData.rows[0]
+    const { username, role: userRole, status, nomor_hp } = reqData.rows[0]
 
     if (status === 'selesai') {
       return res.status(409).json({ message: 'Request ini sudah diproses sebelumnya' })
+    }
+
+    // Admin vendor: validasi bahwa user ini memang di armadanya
+    if (!isSuperAdmin) {
+      let armadaCheck
+      if (userRole === 'petugas') {
+        armadaCheck = await pool.query(
+          'SELECT 1 FROM petugas WHERE (username = $1 OR nomor_pegawai = $1) AND armada_id = $2',
+          [username, armada_id]
+        )
+      } else {
+        armadaCheck = await pool.query(
+          'SELECT 1 FROM driver WHERE username = $1 AND armada_id = $2',
+          [username, armada_id]
+        )
+      }
+      if (armadaCheck.rows.length === 0) {
+        return res.status(403).json({ message: 'Akses ditolak: user tidak berada di armada Anda' })
+      }
     }
 
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -102,7 +179,7 @@ export const handleReset = async (req, res) => {
       tempPassword += chars[Math.floor(Math.random() * chars.length)]
     }
 
-    if (role === 'petugas') {
+    if (userRole === 'petugas') {
       await pool.query(
         "UPDATE petugas SET password = crypt($1, gen_salt('bf')) WHERE username = $2 OR nomor_pegawai = $2",
         [tempPassword, username]
@@ -119,7 +196,7 @@ export const handleReset = async (req, res) => {
       [admin_id, id]
     )
 
-    res.json({ message: 'Password berhasil direset', password_baru: tempPassword, username, role, nomor_hp })
+    res.json({ message: 'Password berhasil direset', password_baru: tempPassword, username, role: userRole, nomor_hp })
   } catch (err) {
     console.error('Handle reset error:', err)
     res.status(500).json({ message: 'Terjadi kesalahan server' })
