@@ -76,9 +76,17 @@ export const getAdminDashboard = async (req, res) => {
 
     // Total armada hanya relevan untuk super_admin
     let totalArmada = null
+    let totalBus = null
+    let totalKoridor = null
     if (isSuperAdmin) {
-      const armadaResult = await pool.query(`SELECT COUNT(*) AS total FROM armada`)
-      totalArmada = parseInt(armadaResult.rows[0].total)
+      const [armadaResult, busResult, koridorResult] = await Promise.all([
+        pool.query(`SELECT COUNT(*) AS total FROM armada`),
+        pool.query(`SELECT COUNT(*) AS total FROM bus WHERE status_aktif = 'aktif'`),
+        pool.query(`SELECT COUNT(*) AS total FROM koridor`),
+      ])
+      totalArmada  = parseInt(armadaResult.rows[0].total)
+      totalBus     = parseInt(busResult.rows[0].total)
+      totalKoridor = parseInt(koridorResult.rows[0].total)
     }
 
     // Cek warning: apakah periode aktif adalah periode terakhir dan belum ada siklus berikutnya
@@ -219,6 +227,8 @@ export const getAdminDashboard = async (req, res) => {
     res.json({
       total_driver_aktif:       parseInt(driverResult.rows[0].total),
       total_armada:             totalArmada,
+      total_bus:                totalBus,
+      total_koridor:            totalKoridor,
       total_petugas_aktif:      parseInt(petugasResult.rows[0].total),
       total_pending_validasi:   parseInt(pendingResult.rows[0].total),
       total_approved_bulan_ini: parseInt(approvedPeriodeIniResult.rows[0].total),
