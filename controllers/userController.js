@@ -206,7 +206,7 @@ export const getAllUsers = async (req, res) => {
       adminResult = await pool.query(
         `SELECT admin_id AS id, nama_admin AS nama, nomor_pegawai AS identifier,
                 no_hp, status_aktif, role,
-                a.kode_armada, a.nama_armada
+                a.armada_id, a.kode_armada, a.nama_armada
          FROM admin
          LEFT JOIN armada a ON admin.armada_id = a.armada_id`
       )
@@ -214,7 +214,7 @@ export const getAllUsers = async (req, res) => {
       petugasResult = await pool.query(
         `SELECT p.petugas_id AS id, p.nama_petugas AS nama, p.nomor_pegawai AS identifier,
                 p.no_hp, p.status_aktif, 'petugas' AS role,
-                a.kode_armada, a.nama_armada
+                a.armada_id, a.kode_armada, a.nama_armada
          FROM petugas p
          LEFT JOIN armada a ON p.armada_id = a.armada_id`
       )
@@ -235,7 +235,7 @@ export const getAllUsers = async (req, res) => {
       adminResult = await pool.query(
         `SELECT admin_id AS id, nama_admin AS nama, nomor_pegawai AS identifier,
                 no_hp, status_aktif, role,
-                a.kode_armada, a.nama_armada
+                a.armada_id, a.kode_armada, a.nama_armada
          FROM admin
          LEFT JOIN armada a ON admin.armada_id = a.armada_id
          WHERE admin.armada_id = $1`,
@@ -245,7 +245,7 @@ export const getAllUsers = async (req, res) => {
       petugasResult = await pool.query(
         `SELECT p.petugas_id AS id, p.nama_petugas AS nama, p.nomor_pegawai AS identifier,
                 p.no_hp, p.status_aktif, 'petugas' AS role,
-                a.kode_armada, a.nama_armada
+                a.armada_id, a.kode_armada, a.nama_armada
          FROM petugas p
          LEFT JOIN armada a ON p.armada_id = a.armada_id
          WHERE p.armada_id = $1`,
