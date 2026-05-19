@@ -13,7 +13,7 @@ export const getAllKoridor = async (req, res) => {
 
   try {
     let query = `
-      SELECT k.koridor_id, k.nama_koridor, k.tipe, k.armada_id,
+      SELECT k.koridor_id, k.nama_koridor, k.tipe, k.status_aktif, k.armada_id,
              a.kode_armada, a.nama_armada
       FROM koridor k
       LEFT JOIN armada a ON k.armada_id = a.armada_id
@@ -36,7 +36,7 @@ export const getAllKoridor = async (req, res) => {
 // POST /api/koridor
 export const createKoridor = async (req, res) => {
   const { role: callerRole, armada_id: callerArmadaId } = req.user
-  const { nama_koridor, tipe } = req.body
+  const { nama_koridor, tipe, status_aktif } = req.body
   let { armada_id } = req.body
 
   if (callerRole !== 'super_admin') {
@@ -51,12 +51,14 @@ export const createKoridor = async (req, res) => {
     return res.status(400).json({ message: 'Tipe harus koridor atau feeder' })
   }
 
+  const statusValue = status_aktif === 'nonaktif' ? 'nonaktif' : 'aktif'
+
   try {
     const result = await pool.query(
-      `INSERT INTO koridor (nama_koridor, tipe, armada_id)
-       VALUES ($1, $2, $3)
-       RETURNING koridor_id, nama_koridor, tipe, armada_id`,
-      [nama_koridor, tipe, armada_id]
+      `INSERT INTO koridor (nama_koridor, tipe, armada_id, status_aktif)
+       VALUES ($1, $2, $3, $4)
+       RETURNING koridor_id, nama_koridor, tipe, armada_id, status_aktif`,
+      [nama_koridor, tipe, armada_id, statusValue]
     )
     res.status(201).json({ message: 'Koridor berhasil ditambahkan', koridor: result.rows[0] })
   } catch (err) {
@@ -93,6 +95,10 @@ export const updateKoridor = async (req, res) => {
     fields.push(`tipe = $${idx++}`)
     values.push(tipe)
   }
+  if (req.body.status_aktif !== undefined) {
+    fields.push(`status_aktif = $${idx++}`)
+    values.push(req.body.status_aktif === 'nonaktif' ? 'nonaktif' : 'aktif')
+  }
   if (armada_id !== undefined && callerRole === 'super_admin') {
     fields.push(`armada_id = $${idx++}`)
     values.push(armada_id)
@@ -107,7 +113,7 @@ export const updateKoridor = async (req, res) => {
   try {
     const result = await pool.query(
       `UPDATE koridor SET ${fields.join(', ')} WHERE koridor_id = $${idx}
-       RETURNING koridor_id, nama_koridor, tipe, armada_id`,
+       RETURNING koridor_id, nama_koridor, tipe, armada_id, status_aktif`,
       values
     )
 
