@@ -77,5 +77,5 @@ app.get('/api/test-db', async (req, res) => {
 })
 
 app.listen(PORT, () => {
-  console.log(`Server berjalan di http://localhost:${PORT}`)
+  console.log(`Server berjalan di port ${PORT}`)
 })
